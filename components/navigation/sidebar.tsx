@@ -9,6 +9,8 @@ const adminItems: NavigationItem[] = [
   { href: "/admin/test", label: "Dashboard" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/workers", label: "Workers" },
+  { href: "/admin/packages", label: "Packages" },
+  { href: "/admin/cities", label: "Covered cities" },
 ];
 
 const workerItems: NavigationItem[] = [

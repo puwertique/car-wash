@@ -11,41 +11,79 @@ MVP API surface lives under `app/api/*` as Next.js Route Handlers.
 - Endpoints that mutate order state log a corresponding `order_events`
   row.
 
-## `POST /api/orders`
+## `POST /api/v1/bookings`
 
-External order intake. Finds/creates the customer (matched by phone),
-creates the order (`NEW`), logs `ORDER_CREATED`, and triggers dispatch.
-
-Optional header: `x-api-key: <ORDERS_API_KEY>` — enforced only if
-`ORDERS_API_KEY` is set in the environment (unset = open, for local
-dev only; always set it in production).
+External booking intake. Requires `Authorization: Bearer <api-key>`.
+The key is matched by SHA-256 hash against the active `api_keys` row; its
+stored `source` is written to the booking and cannot be overridden by the
+request body.
 
 Request body:
 
 ```json
 {
-  "customer_name": "string",
-  "phone": "string",
-  "city": "string",
-  "address": "string",
-  "latitude": -90..90 (optional if GOOGLE_MAPS_API_KEY is configured),
-  "longitude": -180..180 (optional if GOOGLE_MAPS_API_KEY is configured),
-  "vehicle_type": "string (optional)",
-  "vehicle_size": "string (optional)",
-  "package_type": "string (optional)",
-  "service_id": "uuid",
-  "notes": "string (optional)",
-  "scheduled_at": "ISO 8601 datetime (optional)"
+  "full_name": "string",
+  "phone_number": "+212612345678",
+  "source": "wordpress",
+  "vehicle_category": "car",
+  "vehicle_size": "suv_medium",
+  "package_id": "wash_complet_suv_medium",
+  "add_ons": ["addon_tire_shine"],
+  "latitude": 33.5731,
+  "longitude": -7.5898,
+  "address_text": "string",
+  "city": "casablanca",
+  "requested_date": "2026-09-15",
+  "requested_time_slot": "10:00-12:00",
+  "payment_method": "cash",
+  "marketing_consent": true,
+  "notes": "string (optional)"
 }
 ```
 
-When coordinates are omitted, the server calls Google Geocoding once with
-`city + address`, stores the returned latitude/longitude on the order,
-and then dispatches using those stored coordinates. It never calls Google
-Maps while searching individual workers.
+The server ignores any client price and calculates the final price from the
+active package plus active add-ons. The transaction stores `price_snapshot`
+and add-on price snapshots before dispatch. Promo codes are reserved in the
+contract but currently rejected until a promo catalog is introduced.
 
-Response `201`: `{ data: { id, order_number, status } }`.
-Errors: `400` (invalid input / unknown service), `401` (bad API key).
+Response `201`: `{ data: { id, booking_id, status, price } }`.
+Errors: `400` (invalid input), `401` (`INVALID_API_KEY`), `422` (business
+rules such as `PACKAGE_NOT_FOUND`, `ADDON_NOT_FOUND`, `CITY_NOT_COVERED`, or
+`INVALID_SCHEDULE`).
+
+## `GET /api/v1/packages`
+
+Returns active packages for booking forms and marketing integrations. It
+uses the same `Authorization: Bearer <api-key>` as the booking endpoint.
+Inactive packages are never returned.
+
+Optional filters:
+
+```text
+/api/v1/packages?vehicle_category=car&vehicle_size=suv_medium
+```
+
+Response `200`:
+
+```json
+{
+  "data": [
+    {
+      "id": "wash_complet_suv_medium",
+      "name": "غسيل شامل",
+      "description": "...",
+      "vehicle_category": "car",
+      "vehicle_size": "suv_medium",
+      "base_price": 100,
+      "estimated_duration_minutes": 40
+    }
+  ],
+  "source": "wordpress"
+}
+```
+
+Errors: `401` (`INVALID_API_KEY`), `400` (`INVALID_FILTER`), or `500`
+(`PACKAGE_LIST_FAILED`).
 
 ## `POST /api/locations`
 

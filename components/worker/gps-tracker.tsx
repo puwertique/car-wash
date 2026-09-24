@@ -94,7 +94,7 @@ export function GpsTracker({ active }: { active: boolean }) {
     requesting: "GPS: requesting permission…",
     active: "GPS: active",
     denied: "GPS: permission denied — enable location access to receive jobs",
-    error: "GPS: error reading location",
+    error: "GPS: error reading location — check browser permissions and reload the page",
     unsupported: "GPS: not supported by this browser",
   };
 

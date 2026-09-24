@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { GpsTracker } from "@/components/worker/gps-tracker";
 import {
-  acceptCurrentOffer,
+  acceptAssignment,
   advanceOrder,
-  rejectCurrentOffer,
   uploadOrderPhotoAction,
 } from "./actions";
 import type { TransitionableStatus } from "@/lib/orders/transitions";
@@ -39,7 +38,6 @@ export function OrderPanel() {
   useEffect(() => {
     const initialTimeoutId = setTimeout(() => refresh(), 0);
     const interval = setInterval(() => {
-      fetch("/api/dispatch/sweep", { method: "POST" }).catch(() => undefined);
       refresh();
     }, POLL_INTERVAL_MS);
     return () => {
@@ -52,7 +50,7 @@ export function OrderPanel() {
     return <p className="text-sm text-black/50">Loading…</p>;
   }
 
-  const { offer, currentOrder, status } = state;
+  const { pendingAcceptance, currentOrder, status } = state;
 
   async function handle(action: () => Promise<{ error: string | null }>) {
     setPending(true);
@@ -73,44 +71,39 @@ export function OrderPanel() {
         </p>
       )}
 
-      {offer && (
+      {pendingAcceptance && (
         <div className="rounded border border-amber-400 bg-amber-50 p-4 space-y-2">
-          <p className="font-medium">New job offer — {offer.orderNumber}</p>
-          <p className="text-sm">{offer.service?.name ?? "Service"} · {offer.address}</p>
-          {offer.offerExpiresAt && (
-            <p className="text-xs text-black/60">
-              Expires at {new Date(offer.offerExpiresAt).toLocaleTimeString()}
-            </p>
-          )}
+          <p className="font-medium">New assignment — {pendingAcceptance.orderNumber}</p>
+          <p className="text-sm">{pendingAcceptance.service?.name ?? "Service"} · {pendingAcceptance.address}</p>
+          <p className="text-xs text-black/60">Assigned by admin — confirm to start</p>
           <div className="flex gap-2">
             <button
               type="button"
               disabled={pending}
-              onClick={() => handle(() => acceptCurrentOffer(offer.id))}
+              onClick={() => handle(() => acceptAssignment(pendingAcceptance.id))}
               className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
             >
               Accept
-            </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => handle(() => rejectCurrentOffer(offer.id))}
-              className="rounded border border-black/20 px-3 py-1.5 text-sm disabled:opacity-50"
-            >
-              Reject
             </button>
           </div>
         </div>
       )}
 
       {currentOrder && (
-        <div className="rounded border border-black/10 p-4 space-y-2">
+        <div className="rounded border border-black/10 p-4 space-y-3">
           <p className="font-medium">
-            Current job — {currentOrder.orderNumber} ({currentOrder.status})
+            {currentOrder.orderNumber} · {currentOrder.status}
           </p>
-          <p className="text-sm">
-            {currentOrder.customer?.name} · {currentOrder.address}
-          </p>
+          <p className="text-sm font-medium">{currentOrder.customer?.name}</p>
+          <a
+            href={`tel:${currentOrder.customer?.phone}`}
+            className="inline-block text-sm underline"
+          >
+            {currentOrder.customer?.phone}
+          </a>
+          <p className="text-sm">{currentOrder.service?.name} · {currentOrder.service?.vehicleCategory} · {currentOrder.service?.vehicleSize}</p>
+          <p className="text-sm font-medium">{currentOrder.price} MAD</p>
+          <p className="text-sm">{currentOrder.address}</p>
           {currentOrder.notes && (
             <p className="text-xs text-black/60">Notes: {currentOrder.notes}</p>
           )}
@@ -124,8 +117,10 @@ export function OrderPanel() {
             Open navigation
           </a>
 
-          <OrderPhotoUpload orderId={currentOrder.id} kind="before" label="Before photo" />
-          <OrderPhotoUpload orderId={currentOrder.id} kind="after" label="After photo" />
+          <div className="flex flex-wrap gap-2">
+            <OrderPhotoUpload orderId={currentOrder.id} kind="before" label="Before photo" />
+            <OrderPhotoUpload orderId={currentOrder.id} kind="after" label="After photo" />
+          </div>
 
           {NEXT_STEP[currentOrder.status] && (
             <button
@@ -142,7 +137,7 @@ export function OrderPanel() {
         </div>
       )}
 
-      {!offer && !currentOrder && (
+      {!pendingAcceptance && !currentOrder && (
         <p className="text-sm text-black/50">No active job right now.</p>
       )}
     </div>

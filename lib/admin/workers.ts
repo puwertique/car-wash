@@ -4,10 +4,13 @@ export type AdminWorkerRow = {
   id: string;
   name: string;
   phone: string;
-  city: string | null;
-  status: string;
-  vehicle: string | null;
-  lastLocationAt: string | null;
+  city: string;
+  operationalStatus: string;
+  employmentStatus: string;
+  profilePhotoUrl: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationUpdatedAt: string | null;
 };
 
 export async function listWorkersForAdmin(): Promise<AdminWorkerRow[]> {
@@ -15,13 +18,10 @@ export async function listWorkersForAdmin(): Promise<AdminWorkerRow[]> {
 
   const { data } = await supabase
     .from("workers")
-    .select(
-      "id, first_name, last_name, phone, city, status, vehicles(type, brand, model), worker_current_locations(updated_at)",
-    )
+    .select("id, first_name, last_name, phone, city, status, employment_status, profile_photo_url, worker_current_locations(latitude, longitude, updated_at)")
     .order("first_name");
 
   return (data ?? []).map((row) => {
-    const vehicle = Array.isArray(row.vehicles) ? row.vehicles[0] : row.vehicles;
     const location = Array.isArray(row.worker_current_locations)
       ? row.worker_current_locations[0]
       : row.worker_current_locations;
@@ -31,9 +31,12 @@ export async function listWorkersForAdmin(): Promise<AdminWorkerRow[]> {
       name: `${row.first_name} ${row.last_name}`,
       phone: row.phone,
       city: row.city,
-      status: row.status,
-      vehicle: vehicle ? `${vehicle.type} ${vehicle.brand ?? ""} ${vehicle.model ?? ""}`.trim() : null,
-      lastLocationAt: location?.updated_at ?? null,
+      operationalStatus: row.status,
+      employmentStatus: row.employment_status,
+      profilePhotoUrl: row.profile_photo_url,
+      latitude: location?.latitude ?? null,
+      longitude: location?.longitude ?? null,
+      locationUpdatedAt: location?.updated_at ?? null,
     };
   });
 }

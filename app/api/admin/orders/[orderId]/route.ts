@@ -4,7 +4,7 @@ import { getOrderDetailsForAdmin, listOrderEvents } from "@/lib/admin/orders";
 
 export async function GET(
   _request: Request,
-  context: RouteContext<"/api/admin/orders/[orderId]">,
+  context: { params: Promise<{ orderId: string }> },
 ) {
   const profile = await getSessionProfile();
   if (!profile || (profile.role !== "admin" && profile.role !== "owner")) {

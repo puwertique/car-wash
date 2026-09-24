@@ -1,0 +1,13 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { createDirectBooking, type DirectBookingActionState } from "./actions";
+
+const initial: DirectBookingActionState = { error: null, success: null };
+
+export function DirectBookingForm({ packages }: { packages: { id: string; name: string; vehicle_category: string; vehicle_size: string; base_price: number }[] }) {
+  const [state, action, pending] = useActionState(createDirectBooking, initial);
+  const [vehicleSize, setVehicleSize] = useState("");
+  const filteredPackages = packages.filter((item) => item.vehicle_size === vehicleSize);
+  return <form action={action} className="grid max-w-lg grid-cols-2 gap-3"><label className="col-span-2 space-y-1 text-sm"><span className="font-medium">Customer name</span><input name="customer_name" required className="w-full rounded border border-black/20 px-2 py-1.5" /></label><label className="col-span-2 space-y-1 text-sm"><span className="font-medium">Customer phone</span><input name="customer_phone" placeholder="+212612345678" required className="w-full rounded border border-black/20 px-2 py-1.5" /></label><label className="space-y-1 text-sm"><span className="font-medium">Vehicle size</span><select name="vehicle_size" value={vehicleSize} onChange={(event) => setVehicleSize(event.target.value)} required className="w-full rounded border border-black/20 px-2 py-1.5"><option value="">Select size...</option>{["citadine", "berline", "suv_medium", "suv_large", "moto_small", "moto_large"].map((size) => <option key={size} value={size}>{size}</option>)}</select></label><label className="space-y-1 text-sm"><span className="font-medium">Package</span><select name="package_id" required disabled={!vehicleSize} className="w-full rounded border border-black/20 px-2 py-1.5"><option value="">{vehicleSize ? "Select package..." : "Select vehicle size first..."}</option>{filteredPackages.map((item) => <option key={item.id} value={item.id}>{item.name} - {item.base_price} MAD</option>)}</select></label><label className="col-span-2 space-y-1 text-sm"><span className="font-medium">Payment method</span><select name="payment_method" required className="w-full rounded border border-black/20 px-2 py-1.5"><option value="cash">Cash</option><option value="card">Card</option><option value="online">Online</option></select></label>{state.error && <p className="col-span-2 text-sm text-red-600">{state.error}</p>}{state.success && <p className="col-span-2 text-sm text-green-700">{state.success}</p>}<button disabled={pending} className="col-span-2 rounded bg-black px-3 py-2 text-sm text-white">{pending ? "Creating..." : "Create booking"}</button></form>;
+}

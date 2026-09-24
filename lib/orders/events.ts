@@ -20,16 +20,28 @@ export type OrderEventType =
  * user's own session (RLS allows workers to log events on their orders).
  */
 export async function recordSystemOrderEvent(
-  orderId: string,
+  bookingId: string,
   eventType: OrderEventType,
   metadata?: Record<string, unknown>,
   workerId?: string | null,
 ) {
   const admin = createAdminClient();
-  await admin.from("order_events").insert({
-    order_id: orderId,
+  const statusByEvent: Partial<Record<OrderEventType, string>> = {
+    SEARCH_STARTED: "SEARCHING_WORKER",
+    WORKER_OFFERED: "OFFERED",
+    WORKER_ACCEPTED: "ACCEPTED",
+    WORKER_REJECTED: "rejected",
+    WORKER_ON_THE_WAY: "ON_THE_WAY",
+    WORKER_ARRIVED: "ARRIVED",
+    WASH_STARTED: "WASHING",
+    WASH_COMPLETED: "COMPLETED",
+  };
+  const status = statusByEvent[eventType];
+  if (!status) return;
+  await admin.from("booking_assignments").insert({
+    booking_id: bookingId,
     worker_id: workerId ?? null,
-    event_type: eventType,
-    metadata: metadata ?? null,
+    status,
+    offer_expires_at: typeof metadata?.expires_at === "string" ? metadata.expires_at : null,
   });
 }

@@ -9,13 +9,6 @@ const REQUIRED_CURRENT_STATUS: Record<TransitionableStatus, string> = {
   COMPLETED: "WASHING",
 };
 
-const EVENT_FOR_STATUS: Record<TransitionableStatus, string> = {
-  ON_THE_WAY: "WORKER_ON_THE_WAY",
-  ARRIVED: "WORKER_ARRIVED",
-  WASHING: "WASH_STARTED",
-  COMPLETED: "WASH_COMPLETED",
-};
-
 export type TransitionResult = { error: string | null };
 
 /**
@@ -43,10 +36,18 @@ export async function transitionOrder(
 
   if (!worker) return { error: "Worker profile not found." };
 
+  const timestampField =
+    nextStatus === "ARRIVED" ? "arrived_at" :
+    nextStatus === "WASHING" ? "started_at" :
+    nextStatus === "COMPLETED" ? "completed_at" : null;
+
+  const updatePayload: Record<string, unknown> = { status: nextStatus };
+  if (timestampField) updatePayload[timestampField] = new Date().toISOString();
+
   const { data: order, error } = await supabase
-    .from("orders")
-    .update({ status: nextStatus })
-    .eq("id", orderId)
+    .from("booking_assignments")
+    .update(updatePayload)
+    .eq("booking_id", orderId)
     .eq("worker_id", worker.id)
     .eq("status", requiredCurrent)
     .select()
@@ -54,14 +55,18 @@ export async function transitionOrder(
 
   if (error || !order) return { error: "Invalid transition or order not found." };
 
-  await supabase.from("order_events").insert({
-    order_id: orderId,
-    worker_id: worker.id,
-    event_type: EVENT_FOR_STATUS[nextStatus],
-  });
+  await supabase.from("bookings").update({ status: nextStatus === "COMPLETED" ? "completed" : "in_progress" }).eq("id", orderId);
 
   if (nextStatus === "COMPLETED") {
-    await supabase.from("workers").update({ status: "AVAILABLE" }).eq("id", worker.id);
+    const { data: activeAssignments } = await supabase
+      .from("booking_assignments")
+      .select("id")
+      .eq("worker_id", worker.id)
+      .in("status", ["ACCEPTED", "ON_THE_WAY", "ARRIVED", "WASHING"]);
+
+    if ((activeAssignments ?? []).length === 0) {
+      await supabase.from("workers").update({ status: "AVAILABLE" }).eq("id", worker.id);
+    }
   }
 
   return { error: null };

@@ -16,7 +16,7 @@ export async function findBestWorkerForOrder(
   const admin = createAdminClient();
 
   const { data: order } = await admin
-    .from("orders")
+    .from("bookings")
     .select("latitude, longitude")
     .eq("id", orderId)
     .single();

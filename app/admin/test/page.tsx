@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getSessionProfile } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/worker/logout-button";
-import { listServicesForAdmin } from "@/lib/admin/orders";
+import { listPackagesForAdmin } from "@/lib/admin/orders";
+import { listCoveredCities } from "@/lib/admin/cities";
 import { CreateTestOrderForm } from "./create-test-order-form";
 import { RegisterWorkerForm } from "./register-worker-form";
 
@@ -11,7 +13,7 @@ export default async function AdminTestPage() {
     redirect("/login");
   }
 
-  const services = await listServicesForAdmin();
+  const [packages, cities] = await Promise.all([listPackagesForAdmin(), listCoveredCities()]);
 
   return (
     <main className="flex-1 space-y-8 p-6">
@@ -22,6 +24,7 @@ export default async function AdminTestPage() {
       <p className="text-sm text-black/70">
         Signed in as {profile.email} ({profile.role}).
       </p>
+      <Link href="/account/password" className="text-sm underline">Change password</Link>
 
       <section>
         <h2 className="mb-2 font-medium">Register worker</h2>
@@ -30,12 +33,12 @@ export default async function AdminTestPage() {
           password with the worker and have them change it later) and a
           worker profile. There is no self-registration, per spec.
         </p>
-        <RegisterWorkerForm />
+        <RegisterWorkerForm cities={cities.filter((city) => city.is_active).map((city) => city.id)} />
       </section>
 
       <section>
         <h2 className="mb-2 font-medium">Create test order</h2>
-        <CreateTestOrderForm services={services} />
+        <CreateTestOrderForm packages={packages} cities={cities.filter((city) => city.is_active).map((city) => city.id)} />
       </section>
     </main>
   );

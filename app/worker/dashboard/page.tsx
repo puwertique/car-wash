@@ -17,6 +17,8 @@ export default async function WorkerDashboardPage() {
       <p className="text-sm text-black/70">
         Signed in as {profile.email} ({profile.role}).
       </p>
+      <Link href="/account/password" className="text-sm underline">Change password</Link>
+      <Link href="/worker/bookings/new" className="ml-4 text-sm underline">New direct booking</Link>
 
       <div className="mt-4">
         <OrderPanel />

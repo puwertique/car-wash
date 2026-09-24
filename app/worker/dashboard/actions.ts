@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { acceptOffer, rejectOffer } from "@/lib/orders/offer-actions";
 import { transitionOrder, type TransitionableStatus } from "@/lib/orders/transitions";
 import { uploadOrderPhoto, type OrderPhotoKind } from "@/lib/orders/photo";
 
@@ -17,18 +16,23 @@ async function requireAuthUserId(): Promise<string> {
   return user.id;
 }
 
-export async function acceptCurrentOffer(orderId: string): Promise<ActionResult> {
+export async function acceptAssignment(orderId: string): Promise<ActionResult> {
   const authUserId = await requireAuthUserId();
-  const result = await acceptOffer(authUserId, orderId);
-  revalidatePath("/worker/dashboard");
-  return result;
-}
+  const supabase = await createClient();
+  const { data: worker } = await supabase.from("workers").select("id").eq("auth_user_id", authUserId).single();
+  if (!worker) return { error: "Worker profile not found." };
 
-export async function rejectCurrentOffer(orderId: string): Promise<ActionResult> {
-  const authUserId = await requireAuthUserId();
-  const result = await rejectOffer(authUserId, orderId);
+  const { error } = await supabase
+    .from("booking_assignments")
+    .update({ status: "ACCEPTED", accepted_at: new Date().toISOString() })
+    .eq("booking_id", orderId)
+    .eq("worker_id", worker.id)
+    .eq("status", "ASSIGNED_PENDING_ACCEPTANCE");
+
+  if (error) return { error: "Unable to accept this assignment." };
+  await supabase.from("workers").update({ status: "BUSY" }).eq("id", worker.id);
   revalidatePath("/worker/dashboard");
-  return result;
+  return { error: null };
 }
 
 export async function advanceOrder(

@@ -8,35 +8,35 @@ export type OrderSummary = {
   latitude: number;
   longitude: number;
   notes: string | null;
-  offerExpiresAt: string | null;
   customer: { name: string; phone: string } | null;
-  service: { name: string; price: number } | null;
+  service: { name: string; price: number; vehicleCategory: string; vehicleSize: string } | null;
+  price: number;
 };
 
 export type WorkerDashboardState = {
   workerId: string;
   status: "OFFLINE" | "AVAILABLE" | "BUSY";
-  offer: OrderSummary | null;
+  pendingAcceptance: OrderSummary | null;
   currentOrder: OrderSummary | null;
 };
 
 const ORDER_SELECT =
-  "id, order_number, status, address, latitude, longitude, notes, offer_expires_at, customers(name, phone), services(name, price)";
+  "id, booking_id, status, address_text, latitude, longitude, notes, customers(full_name, phone_number), packages(name, base_price, vehicle_category, vehicle_size), price_snapshot";
 
 function toSummary(row: Record<string, unknown>): OrderSummary {
   const customer = Array.isArray(row.customers) ? row.customers[0] : row.customers;
-  const service = Array.isArray(row.services) ? row.services[0] : row.services;
+  const packageRow = Array.isArray(row.packages) ? row.packages[0] : row.packages;
   return {
     id: row.id as string,
-    orderNumber: row.order_number as string,
+    orderNumber: row.booking_id as string,
     status: row.status as string,
-    address: row.address as string,
+    address: row.address_text as string,
     latitude: row.latitude as number,
     longitude: row.longitude as number,
     notes: (row.notes as string | null) ?? null,
-    offerExpiresAt: (row.offer_expires_at as string | null) ?? null,
-    customer: customer ? { name: customer.name, phone: customer.phone } : null,
-    service: service ? { name: service.name, price: service.price } : null,
+    customer: customer ? { name: customer.full_name, phone: customer.phone_number } : null,
+    service: packageRow ? { name: packageRow.name, price: packageRow.base_price, vehicleCategory: packageRow.vehicle_category, vehicleSize: packageRow.vehicle_size } : null,
+    price: row.price_snapshot as number,
   };
 }
 
@@ -53,28 +53,19 @@ export async function getWorkerDashboardState(
 
   if (!worker) return null;
 
-  const nowIso = new Date().toISOString();
-
-  const [{ data: offerRow }, { data: currentOrderRow }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select(ORDER_SELECT)
-      .eq("worker_id", worker.id)
-      .eq("status", "OFFERED")
-      .gt("offer_expires_at", nowIso)
-      .maybeSingle(),
-    supabase
-      .from("orders")
-      .select(ORDER_SELECT)
-      .eq("worker_id", worker.id)
-      .in("status", ["ACCEPTED", "ON_THE_WAY", "ARRIVED", "WASHING"])
-      .maybeSingle(),
+  const [{ data: pendingAssignment }, { data: currentAssignment }] = await Promise.all([
+    supabase.from("booking_assignments").select(`booking_id, bookings(${ORDER_SELECT})`).eq("worker_id", worker.id).eq("status", "ASSIGNED_PENDING_ACCEPTANCE").maybeSingle(),
+    supabase.from("booking_assignments").select(`booking_id, bookings(${ORDER_SELECT})`).eq("worker_id", worker.id).in("status", ["ACCEPTED", "ON_THE_WAY", "ARRIVED", "WASHING"]).maybeSingle(),
   ]);
+  const pendingBookingRows = pendingAssignment?.bookings;
+  const currentBookingRows = currentAssignment?.bookings;
+  const pendingRow = (Array.isArray(pendingBookingRows) ? pendingBookingRows[0] : pendingBookingRows) as Record<string, unknown> | null | undefined;
+  const currentOrderRow = (Array.isArray(currentBookingRows) ? currentBookingRows[0] : currentBookingRows) as Record<string, unknown> | null | undefined;
 
   return {
     workerId: worker.id,
     status: worker.status,
-    offer: offerRow ? toSummary(offerRow) : null,
+    pendingAcceptance: pendingRow ? toSummary(pendingRow) : null,
     currentOrder: currentOrderRow ? toSummary(currentOrderRow) : null,
   };
 }

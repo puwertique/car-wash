@@ -35,9 +35,9 @@ export async function uploadOrderPhoto(
   if (!worker) return { error: "Worker profile not found." };
 
   const { data: order } = await supabase
-    .from("orders")
-    .select("id")
-    .eq("id", orderId)
+    .from("booking_assignments")
+    .select("booking_id")
+    .eq("booking_id", orderId)
     .eq("worker_id", worker.id)
     .single();
 
@@ -56,7 +56,7 @@ export async function uploadOrderPhoto(
 
   const column = kind === "before" ? "before_photo_url" : "after_photo_url";
   const { error: updateError } = await supabase
-    .from("orders")
+    .from("bookings")
     .update({ [column]: publicUrlData.publicUrl })
     .eq("id", orderId);
 

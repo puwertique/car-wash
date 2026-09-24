@@ -1,11 +1,23 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { useActionState } from "react";
 import { login, type LoginState } from "./actions";
 
 const initialState: LoginState = { error: null };
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="flex flex-1 items-center justify-center p-6" />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [state, formAction, pending] = useActionState(login, initialState);
 
   return (
@@ -57,6 +69,16 @@ export default function LoginPage() {
         >
           {pending ? "Signing in…" : "Sign in"}
         </button>
+
+        {searchParams.get("password_reset") === "success" && (
+          <p className="text-sm text-green-700" role="status">
+            Your password was updated successfully. You can now sign in.
+          </p>
+        )}
+
+        <Link href="/forgot-password" className="block text-center text-sm underline">
+          Forgot password?
+        </Link>
 
         <p className="text-xs text-black/60">
           Accounts are created by an admin. There is no self-registration.
